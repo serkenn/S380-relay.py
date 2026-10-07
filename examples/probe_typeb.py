@@ -11,9 +11,9 @@ whether the CID byte matters.
     python examples/probe_typeb.py [index] nocid     # data phase WITHOUT the CID byte
     python examples/probe_typeb.py [index] senseonly # only sense, no data phase
 
-Note: as documented, the RC-S380 can activate a Type-B card but usually cannot
-carry its data phase — use a PC/SC reader (``server --reader pcsc``) for that.
-This probe is a bring-up diagnostic to see how far the RC-S380 gets.
+The RC-S380 carries the Type-B data phase fine (this was used to verify it);
+this probe remains a handy bring-up diagnostic and a way to check whether a
+given card expects the CID byte.
 """
 
 import sys
@@ -56,7 +56,7 @@ def main():
     if len(sensb_res) >= 12:
         pupi = sensb_res[1:5]
         fsci = sensb_res[10] >> 4
-        cid_supported = bool(sensb_res[11] & 0x01)
+        cid_supported = bool(sensb_res[11] & 0x02)
         print(
             "  PUPI=%s  FSC=%d (FSCI=%d)  CID-supported=%s"
             % (pupi.hex(), isodep.frame_size_from_code(fsci), fsci, cid_supported)
@@ -66,8 +66,9 @@ def main():
         clf.close()
         return
 
-    # ATTRIB: 0x1D + PUPI(4) + Param1..4 (FSDI=8, ISO14443-4, CID=0).
-    attrib = b"\x1D" + sensb_res[1:5] + b"\x00\x80\x01\x00"
+    # ATTRIB: 0x1D + PUPI(4) + Param1..4. FSDI is Param2's low nibble, so
+    # 0x08 -> FSDI=8 (256-byte frames); Param3=0x01 selects ISO14443-4; CID=0.
+    attrib = b"\x1D" + sensb_res[1:5] + b"\x00\x08\x01\x00"
     try:
         print("ATTRIB -> %s" % bytes(clf.exchange(bytearray(attrib), 1.0)).hex())
     except nfc.clf.CommunicationError as e:

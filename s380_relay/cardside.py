@@ -148,12 +148,16 @@ class Port100Side(CardSide):
             raise CardError("no NFC-B card detected")
         if len(sensb_res) < 12:
             raise CardError("SENSB_RES too short: %s" % sensb_res.hex())
-        # ATTRIB: 0x1D + PUPI(4) + Param1..4. Param2=0x80 -> FSDI=8; Param3=0x01
-        # selects ISO14443-4; CID=0.
-        attrib = b"\x1D" + sensb_res[1:5] + b"\x00\x80\x01\x00"
+        # ATTRIB: 0x1D + PUPI(4) + Param1..4. FSDI is the *low* nibble of
+        # Param2, so Param2=0x08 -> FSDI=8 (256-byte frames); Param3=0x01
+        # selects ISO14443-4; CID=0. (A swapped nibble here, 0x80, makes the
+        # card misread FSD and silently drop every data-phase I-block.)
+        attrib = b"\x1D" + sensb_res[1:5] + b"\x00\x08\x01\x00"
         self._transceive(attrib, timeout_ms)
         fsc = isodep.frame_size_from_code(sensb_res[10] >> 4)
-        cid = 0 if sensb_res[11] & 0x01 else None
+        # SENSB_RES protocol-info byte 11: b2 (0x02) = CID supported, b1 (0x01)
+        # = NAD supported. Only include a CID byte when the card supports CID.
+        cid = 0 if sensb_res[11] & 0x02 else None
         log.info("NFC-B ISO-DEP card: SENSB_RES=%s (FSC=%d, CID=%s)", sensb_res.hex(), fsc, cid)
         self.pcd = isodep.Pcd(fsc, cid)
         return sensb_res.hex()

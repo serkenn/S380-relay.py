@@ -32,10 +32,11 @@ ISO14443-4 に収束し、リンクを渡るのは APDU だけ）。
 - **カードエミュレーション**（Type A の Type4 ターゲットとして `listen`、RATS に応答）
   … クライアント/スマホ側
 
-nfcpy には **RC-S300（Port-400）ドライバが無い**ため、完全な PC/SC ISO-DEP スタックが
-必要なカード（特に RC-S380 では運べない Type B のデータフェーズ）では、カード側に
-`pyscard` 経由で任意の **PC/SC** リーダ（Sony 純正ドライバの RC-S300 / PaSoRi 4.0 等）を
-使えます。
+RC-S380 はカード側で **Type A も Type B も**駆動でき、Type B カードの ISO-DEP
+データフェーズも最後まで運べます。nfcpy には **RC-S300（Port-400）ドライバが無い**
+ものの、Type B に PC/SC リーダは不要です。カード側に `pyscard` 経由で任意の
+**PC/SC** リーダ（Sony 純正ドライバの RC-S300 / PaSoRi 4.0 等）を使うこともできますが、
+RC-S380 1 台で十分です。
 
 ## 必要なもの
 
@@ -93,11 +94,11 @@ s380-relay -v server --listen 0.0.0.0:7878
 | `-d, --device-index <n>` | `0` | どの RC-S380（port100。`list` 参照） |
 | `-t, --timeout <ms>` | `1000` | コマンド毎のタイムアウト |
 
-> **Type B は PC/SC リーダが必要。** Rust 版同様、RC-S380（Port-100）は Type B
-> カードを activate（ATTRIB）できてもデータフェーズを安定して運べません。Type B は
-> `--reader pcsc` で RC-S300 / PaSoRi 4.0（Sony ドライバ + pyscard）を使ってください。
-> その PC/SC スタックが WTX / チェイニング / IFS を処理します。Type A は RC-S380 で
-> 直接動きます。
+> **Type B も RC-S380 で動きます。** カード側は `--reader port100` で Type A・
+> Type B の両方を中継でき、RC-S380 が Type B のデータフェーズ（ISO-DEP の
+> I/R/S ブロック、WTX、チェイニング）も最後まで運びます（マイナンバーカードで
+> 動作確認済み）。PC/SC リーダ（`--reader pcsc`、RC-S300 / PaSoRi 4.0 等）は
+> 必須ではなく、任意の代替手段です。
 
 ### クライアント（スマホ側）
 
@@ -165,7 +166,7 @@ TCP 上の改行区切り JSON — Rust 版・Android 版と完全に同一:
 
 - 中継できるのは ISO14443-4 カードのみ（ただの Type 2 タグには APDU レイヤが無い）。
 - エミュレートするカードの UID/ATS は合成で、実カードのものではありません。
-- RC-S380 の Type B データフェーズは不安定 — PC/SC リーダを使ってください。
+- Type B も（Type A と同様）RC-S380 で直接中継できます。PC/SC リーダは任意です。
 - 各面 1 台のため、サーバは一度に 1 クライアントのみ対応。
 
 ## テスト

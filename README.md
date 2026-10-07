@@ -37,10 +37,11 @@ roles:
 - **card emulation** (`listen` as a Type A Type-4 target, answering RATS) for
   the client/phone side.
 
-nfcpy has **no RC-S300 (Port-400) driver**, so for a card that needs a full
-PC/SC ISO-DEP stack (notably a Type B card's data phase, which the RC-S380
-cannot carry) the card side can instead use any **PC/SC** reader through
-`pyscard` — e.g. an RC-S300 / PaSoRi 4.0 with Sony's own driver.
+The RC-S380 drives **both Type A and Type B** cards on the card side, including
+a Type B card's full ISO-DEP data phase. nfcpy has **no RC-S300 (Port-400)
+driver**, but a PC/SC reader is not required for Type B: the card side can
+optionally use any **PC/SC** reader through `pyscard` — e.g. an RC-S300 /
+PaSoRi 4.0 with Sony's own driver — but a single RC-S380 is enough.
 
 ## Requirements
 
@@ -98,11 +99,11 @@ s380-relay -v server --listen 0.0.0.0:7878
 | `-d, --device-index <n>` | `0` | Which RC-S380 (port100; see `list`) |
 | `-t, --timeout <ms>` | `1000` | Per-command timeout |
 
-> **Type B needs a PC/SC reader.** As with the Rust version, the RC-S380
-> (Port-100) can activate a Type B card (ATTRIB) but cannot reliably carry the
-> Type B *data phase*. Use `--reader pcsc` with an RC-S300 / PaSoRi 4.0 (Sony
-> driver + pyscard), whose PC/SC stack handles WTX / chaining / IFS, for a
-> Type B card. Type A works on the RC-S380 directly.
+> **Type B works on the RC-S380.** Both Type A and Type B cards are relayed on
+> the card side with `--reader port100` — the RC-S380 carries the Type B data
+> phase (ISO-DEP I-/R-/S-blocks, WTX, chaining) end to end; it was verified
+> relaying a My Number card. A PC/SC reader (`--reader pcsc`, e.g. an RC-S300 /
+> PaSoRi 4.0) is only an optional alternative, not a requirement.
 
 ### Client (phone side)
 
@@ -170,7 +171,7 @@ Run from this directory (they import the package):
 
 - Only ISO14443-4 cards can be relayed; a plain Type 2 tag has no APDU layer.
 - The emulated card's UID/ATS is synthetic, not the real card's.
-- Type B data phase on the RC-S380 is unreliable — use a PC/SC reader.
+- Type B (as well as Type A) is relayed on the RC-S380 directly; a PC/SC reader is optional.
 - One physical reader per side means the server serves one client at a time.
 
 ## Tests
