@@ -150,6 +150,7 @@ Run from this directory (they import the package):
 | `python examples/relay_test_client.py [host:port]` | Connects to the server, sends a few probe APDUs (no reader needed) |
 | `python examples/find_aid.py [host:port]` | SELECTs candidate AIDs against the real card to identify it |
 | `python examples/terminal.py [index]` | Drives an RC-S380 as an ISO-DEP reader to tap the emulated card and exercise the full relay |
+| `python examples/probe_typeb.py [index] [nocid\|senseonly]` | RC-S380 Type-B bring-up probe: sense SENSB_RES, then optionally ATTRIB + one I-block |
 
 ## How the relay works
 

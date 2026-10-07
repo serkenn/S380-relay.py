@@ -1,8 +1,10 @@
 """Server (card side): holds the real card on a local reader, activates it into
 ISO-DEP, and relays command APDUs to it for a remote client.
 
-An APDU exchange that fails is retried once after re-activating the card,
-which recovers a card that dropped out of layer 4 while the field was idle.
+When an APDU exchange fails the card is re-activated, which recovers a card
+that dropped out of layer 4 while the field was idle. Re-activation loses the
+card's state, so the failed APDU is replayed only if it is a SELECT by AID;
+otherwise the failure is reported.
 
 Only one physical reader is involved, so connections are served one at a time;
 a new client waits until the previous one disconnects. Clients keep their link
@@ -148,10 +150,10 @@ def relay_apdu(
         return _apdu_response(card.exchange(apdu, timeout))
     except CardError as e:
         first_err = e
-    log.debug("APDU failed (%s); re-activating card and retrying once", first_err)
+    log.debug("APDU failed (%s); re-activating card", first_err)
 
-    # Retry once after re-activating, keeping the original error visible if the
-    # card can no longer be activated.
+    # Re-activate, keeping the original error visible if the card can no longer
+    # be activated.
     session.activated = False
     try:
         card.activate(timeout)
@@ -160,10 +162,29 @@ def relay_apdu(
             "APDU exchange failed: %s (re-activation also failed: %s)" % (first_err, e)
         )
     session.activated = True
+
+    # Re-activation resets the card's state (selected applet/file, verified
+    # PIN). Replaying a command that relies on it returns a misleading answer
+    # (e.g. 6D00 for a READ BINARY), so only a SELECT by AID, which sets that
+    # state itself, is replayed. Anything else is reported as a failure so the
+    # terminal starts over instead of trusting a wrong response.
+    if not is_select_by_aid(apdu):
+        log.warning(
+            "APDU failed (%s); card re-activated but its state was lost, not replaying", first_err
+        )
+        return protocol.Error(
+            "APDU exchange failed: %s (card re-activated; state lost, not replayed)" % first_err
+        )
+    log.debug("replaying SELECT by AID on the re-activated card")
     try:
         return _apdu_response(card.exchange(apdu, timeout))
     except CardError as e:
         return protocol.Error("APDU exchange failed: %s" % e)
+
+
+def is_select_by_aid(apdu: bytes) -> bool:
+    """ISO 7816-4 SELECT with P1=04 (select by DF name / AID)."""
+    return len(apdu) >= 4 and apdu[1] == 0xA4 and apdu[2] == 0x04
 
 
 def _apdu_response(response: bytes) -> protocol.ApduResponse:

@@ -145,6 +145,7 @@ TCP 上の改行区切り JSON — Rust 版・Android 版と完全に同一:
 | `python examples/relay_test_client.py [host:port]` | サーバに接続し数個の APDU を送る（リーダ不要） |
 | `python examples/find_aid.py [host:port]` | 候補 AID を SELECT して実カードを特定 |
 | `python examples/terminal.py [index]` | RC-S380 を ISO-DEP リーダとして駆動し、エミュレート側をかざして全体を試験 |
+| `python examples/probe_typeb.py [index] [nocid\|senseonly]` | RC-S380 の Type B 診断: SENSB_RES を検出し、任意で ATTRIB + I ブロック1個 |
 
 ## 動作の仕組み
 

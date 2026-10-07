@@ -53,11 +53,30 @@ def test_apdu_without_get_card_auto_activates():
     assert card.activations == 1
 
 
-def test_retry_after_one_failure_reactivates():
-    card = FakeCard(responses={"00b0": b"\x01\x90\x00"}, fail_times=1)
-    out = drive(card, [p.GetCard(), p.ApduRequest(bytes.fromhex("00b0"))])
-    assert isinstance(out[1], p.ApduResponse) and out[1].data == bytes.fromhex("019000")
+def test_select_by_aid_replayed_after_reactivation():
+    # SELECT by AID (P1=04) sets its own state, so it is safe to replay.
+    aid = "00a40400" + "0a" + "d392f00026010000000100"[:20]
+    card = FakeCard(responses={aid: b"\x6f\x10\x90\x00"}, fail_times=1)
+    out = drive(card, [p.GetCard(), p.ApduRequest(bytes.fromhex(aid))])
+    assert isinstance(out[1], p.ApduResponse) and out[1].data == bytes.fromhex("6f109000")
     assert card.activations == 2  # initial + re-activation
+
+
+def test_non_select_not_replayed_after_reactivation():
+    # READ BINARY depends on the selected EF, so after re-activation it must be
+    # reported as a failure, not replayed against a reset card.
+    card = FakeCard(responses={"00b0000000": b"\x01\x90\x00"}, fail_times=1)
+    out = drive(card, [p.GetCard(), p.ApduRequest(bytes.fromhex("00b0000000"))])
+    assert isinstance(out[1], p.Error)
+    assert "state lost" in out[1].message
+    assert card.activations == 2  # re-activated once, but not replayed
+
+
+def test_is_select_by_aid():
+    assert server.is_select_by_aid(bytes.fromhex("00a4040c0ad392f00026010000000100"))
+    assert not server.is_select_by_aid(bytes.fromhex("00a4020c02000a"))  # SELECT EF by id
+    assert not server.is_select_by_aid(bytes.fromhex("00b0000000"))  # READ BINARY
+    assert not server.is_select_by_aid(bytes.fromhex("00a4"))
 
 
 def test_bad_request_line_reports_error_and_continues():
