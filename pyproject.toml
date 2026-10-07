@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "s380-relay"
+version = "0.1.0"
+description = "Relay ISO14443 (NFC-A/B) smartcard traffic between two readers over the network at the APDU layer, using nfcpy for the RC-S380"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.8"
+dependencies = [
+    "nfcpy>=1.0",
+]
+
+[project.optional-dependencies]
+# PC/SC card-side backend (e.g. RC-S300 / PaSoRi 4.0, needed for Type B).
+pcsc = ["pyscard>=2.0"]
+dev = ["pytest>=7"]
+
+[project.scripts]
+s380-relay = "s380_relay.cli:main"
+
+[tool.setuptools]
+packages = ["s380_relay"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
