@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "s380-relay"
-version = "0.1.0"
+version = "0.2.0"
 description = "Relay ISO14443 (NFC-A/B) smartcard traffic between two readers over the network at the APDU layer, using nfcpy for the RC-S380"
 readme = "README.md"
 license = { text = "Apache-2.0" }

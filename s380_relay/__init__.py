@@ -6,4 +6,4 @@ Android implementations), :mod:`s380_relay.cardside` for the card side, and
 :mod:`s380_relay.client` for the phone side.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
