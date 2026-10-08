@@ -88,7 +88,7 @@ s380-relay -v server --listen 0.0.0.0:7878
 | フラグ | 既定 | 意味 |
 |------|---------|---------|
 | `-l, --listen <addr:port>` | `127.0.0.1:7878` | TCP 待受アドレス |
-| `--tech <a\|b>` | `a` | 実カードの ISO14443 方式 |
+| `--tech <auto\|a\|b>` | `auto` | 実カードの ISO14443 方式（`auto` は Type A → Type B の順に検出） |
 | `--reader <port100\|pcsc>` | `port100` | カード側バックエンド |
 | `--pcsc-name <部分文字列>` | (Sony) | PC/SC リーダ選択用の部分文字列 |
 | `-d, --device-index <n>` | `0` | どの RC-S380（port100。`list` 参照） |

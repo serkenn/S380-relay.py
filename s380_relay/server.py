@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from typing import BinaryIO, Optional
 
 from . import protocol
-from .cardside import CardError, CardSide
+from .cardside import TECH_AUTO, CardError, CardSide
 
 log = logging.getLogger(__name__)
 
@@ -77,9 +77,10 @@ def run(card: CardSide, config: ServerConfig) -> None:
     log.info("card-side reader: %s", card.label())
     host, port = parse_addr(config.listen_addr)
     with socket.create_server((host, port)) as listener:
+        tech = "NFC-A/B auto-detect" if card.tech == TECH_AUTO else "NFC-%s" % card.tech
         print(
-            "S380 relay server (card side, NFC-%s via %s) listening on %s:%d"
-            % (card.tech, card.label(), host, port)
+            "S380 relay server (card side, %s via %s) listening on %s:%d"
+            % (tech, card.label(), host, port)
         )
         print("place the real card on this reader and tap the phone to the client")
         while True:

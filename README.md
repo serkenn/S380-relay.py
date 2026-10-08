@@ -93,7 +93,7 @@ s380-relay -v server --listen 0.0.0.0:7878
 | Flag | Default | Meaning |
 |------|---------|---------|
 | `-l, --listen <addr:port>` | `127.0.0.1:7878` | TCP listen address |
-| `--tech <a\|b>` | `a` | Real card's ISO14443 technology |
+| `--tech <auto\|a\|b>` | `auto` | Real card's ISO14443 technology (`auto` polls Type A, then Type B) |
 | `--reader <port100\|pcsc>` | `port100` | Card-side backend |
 | `--pcsc-name <substr>` | (Sony) | Substring to pick the PC/SC reader |
 | `-d, --device-index <n>` | `0` | Which RC-S380 (port100; see `list`) |

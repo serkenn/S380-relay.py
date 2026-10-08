@@ -42,7 +42,12 @@ def build_parser() -> argparse.ArgumentParser:
     srv = sub.add_parser("server", help="card side: hold the real card, relay to it")
     _add_common(srv)
     srv.add_argument("-l", "--listen", default=DEFAULT_ADDR, help="listen address (default: %(default)s)")
-    srv.add_argument("--tech", choices=["a", "b"], default="a", help="real card's ISO14443 technology")
+    srv.add_argument(
+        "--tech",
+        choices=["auto", "a", "b"],
+        default="auto",
+        help="real card's ISO14443 technology (default: %(default)s, detect A or B)",
+    )
     srv.add_argument(
         "--reader",
         choices=[cardside.READER_PORT100, cardside.READER_PCSC],
@@ -80,7 +85,7 @@ def run_list() -> int:
 
 
 def run_server(args: argparse.Namespace) -> int:
-    tech = TECH_A if args.tech == "a" else TECH_B
+    tech = {"a": TECH_A, "b": TECH_B}.get(args.tech, cardside.TECH_AUTO)
     try:
         card = cardside.open_card_side(args.reader, tech, args.device_index, args.pcsc_name)
     except (cardside.CardError, IOError, ValueError) as e:

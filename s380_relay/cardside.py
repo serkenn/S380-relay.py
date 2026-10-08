@@ -3,8 +3,8 @@ exchanging APDUs with it. Two reader backends implement :class:`CardSide`:
 
 - :class:`Port100Side` drives an RC-S380 (Port-100) through nfcpy's raw
   ``sense``/``exchange`` and the hand-rolled ISO-DEP PCD layer in
-  :mod:`s380_relay.isodep`. This works for Type A ISO-DEP; as in the Rust
-  version, the Type B *data phase* is not reliable on this chipset.
+  :mod:`s380_relay.isodep`, for both Type A and Type B ISO-DEP. With
+  ``auto`` it polls both and relays whichever card answers.
 - :class:`PcscSide` drives any PC/SC reader through pyscard — e.g. an
   RC-S300 / PaSoRi 4.0 with Sony's driver — whose own ISO-DEP stack handles
   WTX, chaining and IFS for both Type A and Type B. nfcpy has no RC-S300
@@ -25,6 +25,10 @@ log = logging.getLogger(__name__)
 #: SAK bit 6 (0x20): the Type A card supports ISO14443-4 (ISO-DEP).
 SAK_ISO_DEP = 0x20
 
+#: Detect the real card's technology (A or B) at activation. Never sent on the
+#: wire: the ``card`` response always carries the detected ``A`` or ``B``.
+TECH_AUTO = "auto"
+
 T = TypeVar("T")
 
 
@@ -35,6 +39,7 @@ class CardError(Exception):
 class CardSide:
     """A reader holding the real card, able to activate it and exchange APDUs."""
 
+    #: The real card's technology; with ``auto``, the one last detected.
     tech: str
 
     def label(self) -> str:
@@ -75,6 +80,7 @@ def retry_until(timeout_ms: int, attempt: Callable[[], T], interval_s: float = 0
 class Port100Side(CardSide):
     def __init__(self, clf, tech: str) -> None:
         self.clf = clf
+        self.auto = tech == TECH_AUTO
         self.tech = tech
         self.pcd: Optional[isodep.Pcd] = None
 
@@ -117,9 +123,27 @@ class Port100Side(CardSide):
 
     def activate(self, timeout_ms: int) -> str:
         self._reset_field()
+        if self.auto:
+            return retry_until(timeout_ms, lambda: self._activate_any(timeout_ms))
         if self.tech == TECH_A:
             return retry_until(timeout_ms, lambda: self._activate_type_a(timeout_ms))
         return retry_until(timeout_ms, lambda: self._activate_type_b(timeout_ms))
+
+    def _activate_any(self, timeout_ms: int) -> str:
+        # Poll Type A then Type B, but try the last detected technology first
+        # so re-activating the same card does not cost an extra sense.
+        order = (TECH_B, TECH_A) if self.tech == TECH_B else (TECH_A, TECH_B)
+        errors = []
+        for tech in order:
+            activate = self._activate_type_a if tech == TECH_A else self._activate_type_b
+            try:
+                info = activate(timeout_ms)
+            except CardError as e:
+                errors.append(str(e))
+                continue
+            self.tech = tech
+            return info
+        raise CardError("; ".join(errors))
 
     def _activate_type_a(self, timeout_ms: int) -> str:
         import nfc.clf
@@ -177,6 +201,7 @@ class Port100Side(CardSide):
 class PcscSide(CardSide):
     def __init__(self, reader, tech: str) -> None:
         self.reader = reader
+        self.auto = tech == TECH_AUTO
         self.tech = tech
         self.connection = None
 
@@ -231,6 +256,8 @@ class PcscSide(CardSide):
             return bytes(connection.getATR()).hex()
 
         atr = retry_until(timeout_ms, attempt)
+        if self.auto:
+            self.tech = tech_from_atr(bytes.fromhex(atr))
         log.info("ISO-DEP card via PC/SC (NFC-%s): ATR=%s", self.tech, atr)
         return atr
 
@@ -246,6 +273,19 @@ class PcscSide(CardSide):
         return bytes(data) + bytes([sw1, sw2])
 
 
+def tech_from_atr(atr: bytes) -> str:
+    """Guesses A or B from a PC/SC contactless ATR (PC/SC Part 3).
+
+    The reader builds a Type B card's historical bytes from the ATQB:
+    application data (4) + protocol info (3) + MBLI/CID (1), i.e. exactly 8
+    bytes; a Type A card's come from its ATS and rarely have that length. The
+    reader runs ISO-DEP itself, so this is only a label for logging.
+    """
+    if len(atr) >= 4 and atr[0] == 0x3B and atr[2:4] == b"\x80\x01" and atr[1] == 0x88:
+        return TECH_B
+    return TECH_A
+
+
 # ---- factory ----------------------------------------------------------------
 
 READER_PORT100 = "port100"
@@ -253,8 +293,8 @@ READER_PCSC = "pcsc"
 
 
 def open_card_side(reader: str, tech: str, device_index: int, pcsc_name: Optional[str]) -> CardSide:
-    if tech not in (TECH_A, TECH_B):
-        raise ValueError("tech must be A or B")
+    if tech not in (TECH_A, TECH_B, TECH_AUTO):
+        raise ValueError("tech must be A, B or auto")
     if reader == READER_PORT100:
         return Port100Side.open(tech, device_index)
     if reader == READER_PCSC:
